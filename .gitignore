@@ -1,5 +1,7 @@
 # Generated files
 ball_events.csv
+video_process.py
+table_corners.npy
 
 # Python cache
 __pycache__/
