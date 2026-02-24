@@ -1,0 +1,6 @@
+frame,event,grid_x,grid_y,left_hit,right_hit
+68,BOUNCE,3,1,NO,YES
+86,BOUNCE,0,1,NO,NO
+112,BOUNCE,2,1,YES,NO
+155,BOUNCE,0,1,NO,NO
+196,BOUNCE,3,0,NO,NO

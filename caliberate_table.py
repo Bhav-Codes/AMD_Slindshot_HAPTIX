@@ -1,3 +1,4 @@
+"""Run this to feed table coordinates"""
 import cv2
 import numpy as np
 

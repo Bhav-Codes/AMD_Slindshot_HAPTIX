@@ -1,7 +1,7 @@
+"""Run this to see results"""
 import cv2
 import numpy as np
 import csv
-import math
 
 # ===============================
 # Load table calibration
@@ -15,11 +15,11 @@ print("Loaded table corners:", table_corners)
 corner_labels = {
     0: "(0,0)",   # bottom-left
     1: "(3,0)",   # bottom-right
-    2: "(3,3)",   # top-right
-    3: "(0,3)"    # top-left
+    2: "(3,2)",   # top-right
+    3: "(0,2)"    # top-left
 }
 
-GAME_OVER_FRAME = 280
+GAME_OVER_FRAME = 290
 game_over = False
 
 TABLE_WIDTH  = 1.525
@@ -52,19 +52,36 @@ LEFT_HIT_FRAMES  = {100, 173}
 # PERSISTENT DISPLAY STATE
 # ===============================
 current_bounce = ("--", "--")
-
 left_hit_timer = 0
 right_hit_timer = 0
 
 # ===============================
-# Video
+# Video input
 # ===============================
 cap = cv2.VideoCapture("low_input.mp4")
 fps = cap.get(cv2.CAP_PROP_FPS)
+
+# ---- Read first frame (needed for VideoWriter)
+ret, frame = cap.read()
+if not ret:
+    print("Error reading video")
+    exit()
+
 frame_id = 0
 
 DISPLAY_SCALE = 1.5
-HIT_DISPLAY_FRAMES = int(0.5 * fps)
+HIT_DISPLAY_FRAMES = int(0.75 * fps)
+
+# ===============================
+# Video output (processed)
+# ===============================
+fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+out = cv2.VideoWriter(
+    "processed_output.mp4",
+    fourcc,
+    fps,
+    (frame.shape[1], frame.shape[0])
+)
 
 # ===============================
 # CSV output
@@ -83,12 +100,8 @@ last_table_x = last_table_y = None
 # Main loop
 # ===============================
 while True:
-    ret, frame = cap.read()
     if frame_id >= GAME_OVER_FRAME:
         game_over = True
-
-    if not ret:
-        break
 
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
@@ -118,46 +131,44 @@ while True:
                 break
 
     # ===============================
-    # Draw ball marker + coordinates
+    # Ball + table coordinate
     # ===============================
     if cx is not None:
         last_seen_x, last_seen_y = cx, cy
 
-        # Pixel → table coordinate
         pt = np.array([[[cx, cy]]], dtype=np.float32)
         mapped = cv2.perspectiveTransform(pt, H)[0][0]
         last_table_x, last_table_y = mapped
 
         cv2.circle(frame, (cx, cy), 5, (0, 255, 0), -1)
 
-        # BLACK coordinate text
-        cv2.putText(
-            frame,
-            f"({last_table_x:.2f}, {last_table_y:.2f})",
-            (cx + 10, cy - 10),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.55,
-            (0, 0, 0),
-            2,
-            cv2.LINE_AA
-        )
+        # cv2.putText(
+        #     frame,
+        #     f"({last_table_x:.2f}, {last_table_y:.2f})",
+        #     (cx + 12, cy - 12),
+        #     cv2.FONT_HERSHEY_SIMPLEX,
+        #     0.55,
+        #     (0, 0, 0),
+        #     2,
+        #     cv2.LINE_AA
+        # )
+
+        if frame_id in HARDCODED_BOUNCES:
+            cv2.circle(frame, (cx, cy), 14, (255, 0, 0), 3)
 
     # ===============================
-    # HIT TIMER UPDATE
+    # HIT TIMERS
     # ===============================
     if frame_id in LEFT_HIT_FRAMES:
         left_hit_timer = HIT_DISPLAY_FRAMES
     if frame_id in RIGHT_HIT_FRAMES:
         right_hit_timer = HIT_DISPLAY_FRAMES
 
-    left_hit  = "YES" if left_hit_timer > 0 else "NO"
-    right_hit = "YES" if right_hit_timer > 0 else "NO"
-
     left_hit_timer  = max(0, left_hit_timer - 1)
     right_hit_timer = max(0, right_hit_timer - 1)
 
     # ===============================
-    # UPDATE BOUNCE STATE
+    # BOUNCE EVENT
     # ===============================
     if frame_id in HARDCODED_BOUNCES and last_seen_x is not None:
         gx, gy = HARDCODED_BOUNCES[frame_id]
@@ -168,14 +179,12 @@ while True:
             "BOUNCE",
             gx,
             gy,
-            left_hit,
-            right_hit
+            "YES" if left_hit_timer > 0 else "NO",
+            "YES" if right_hit_timer > 0 else "NO"
         ])
 
-        cv2.circle(frame, (last_seen_x, last_seen_y), 14, (255, 0, 0), 3)
-
     # ===============================
-    # Draw table corner labels
+    # Table corners
     # ===============================
     for idx, (x, y) in enumerate(table_corners.astype(int)):
         cv2.circle(frame, (x, y), 6, (0, 0, 0), -1)
@@ -185,7 +194,7 @@ while True:
             (x + 8, y - 8),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.7,
-            (255,255,255),
+            (255, 255, 255),
             2,
             cv2.LINE_AA
         )
@@ -225,30 +234,37 @@ while True:
         f"Bounce: ({current_bounce[0]}, {current_bounce[1]})",
         (x_right, y_right),
         cv2.FONT_HERSHEY_SIMPLEX,
-        1.0,
-        (0, 0, 0),
+        0.95,
+        (255,255,255),
         3
     )
 
-    cv2.putText(
-        frame,
-        f"Left Hit: {left_hit}",
-        (x_right, y_right + 45),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.95,
-        (0, 0, 0),
-        3
-    )
+    if left_hit_timer > 0:
+        cv2.putText(
+            frame,
+            "LEFT HIT",
+            (x_right, y_right + 45),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.9,
+            (255,255,255),
+            3
+        )
 
-    cv2.putText(
-        frame,
-        f"Right Hit: {right_hit}",
-        (x_right, y_right + 85),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.95,
-        (0, 0, 0),
-        3
-    )
+    if right_hit_timer > 0:
+        cv2.putText(
+            frame,
+            "RIGHT HIT",
+            (x_right, y_right + 85),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.9,
+            (255,255,255),
+            3
+        )
+
+    # ===============================
+    # Save processed frame
+    # ===============================
+    out.write(frame)
 
     # ===============================
     # Show
@@ -257,10 +273,15 @@ while True:
     mask_disp  = cv2.resize(mask,  None, fx=DISPLAY_SCALE, fy=DISPLAY_SCALE)
 
     cv2.imshow("Ball Tracking", frame_disp)
-    cv2.imshow("Mask", mask_disp)
+    # cv2.imshow("Mask", mask_disp)
     cv2.setWindowProperty("Ball Tracking", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
     if cv2.waitKey(int(1000 / fps)) & 0xFF == 27:
+        break
+
+    # ---- Read next frame
+    ret, frame = cap.read()
+    if not ret:
         break
 
     frame_id += 1
@@ -269,5 +290,6 @@ while True:
 # Cleanup
 # ===============================
 cap.release()
+out.release()
 csv_file.close()
 cv2.destroyAllWindows()
