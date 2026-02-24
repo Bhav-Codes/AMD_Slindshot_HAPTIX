@@ -2,7 +2,11 @@
 import cv2
 import numpy as np
 import csv
+import os
 
+if not os.path.exists("table_corners.npy"):
+    print("Please run calibrate_table.py first")
+    exit()
 # ===============================
 # Load table calibration
 # ===============================
