@@ -1,0 +1,32 @@
+{
+  "table_corners": [
+    [
+      127,
+      129
+    ],
+    [
+      728,
+      135
+    ],
+    [
+      887,
+      323
+    ],
+    [
+      4,
+      307
+    ]
+  ],
+  "table_hsv_lower": [
+    64,
+    181,
+    139
+  ],
+  "table_hsv_upper": [
+    84,
+    255,
+    223
+  ],
+  "ball_color": "yellow",
+  "video_file": "input.mp4"
+}
